@@ -1,0 +1,12 @@
+{
+  "name": "nina-edge-agent",
+  "version": "1.0.0",
+  "description": "Agente local para conectar NINA con la plataforma web",
+  "main": "agente.js",
+  "scripts": {
+    "start": "node agente.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

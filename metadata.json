@@ -1,0 +1,5 @@
+{
+  "name": "NINA Edge Control",
+  "description": "Sistema de control telescopico remoto Edge-to-Cloud para NINA",
+  "requestFramePermissions": []
+}
