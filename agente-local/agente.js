@@ -32,18 +32,66 @@ function conectar() {
 
       try {
         // Pedir datos reales del telescopio a NINA
-        const response = await fetch(`${NINA_API_URL}/equipment/telescope`);
-        
+        const response = await fetch(`${NINA_API_URL}/equipment/mount/info`);
+        let mountData = {};
         if (response.ok) {
-          const telescopeData = await response.json();
-          
+          const resJson = await response.json();
+          mountData = resJson.Response || {};
+        }
+
+        // Pedir datos reales de la camara a NINA
+        const camResponse = await fetch(`${NINA_API_URL}/equipment/camera/info`);
+        let camData = {};
+        if (camResponse.ok) {
+          const resJson = await camResponse.json();
+          camData = resJson.Response || {};
+        }
+
+        // Pedir datos del clima a NINA
+        let weatherData = {};
+        try {
+          const weatherResponse = await fetch(`${NINA_API_URL}/equipment/weather/info`);
+          if (weatherResponse.ok) {
+            const resJson = await weatherResponse.json();
+            weatherData = resJson.Response || {};
+          }
+        } catch (e) {
+          // Ignorar si no hay clima
+        }
+
+        // Intentar obtener la ultima imagen
+        try {
+          const imgResponse = await fetch(`${NINA_API_URL}/application/image`);
+          if (imgResponse.ok) {
+            const buffer = await imgResponse.arrayBuffer();
+            const base64 = Buffer.from(buffer).toString('base64');
+            ws.send(JSON.stringify({
+              type: 'image',
+              imageUrl: `data:image/jpeg;base64,${base64}`
+            }));
+          }
+        } catch (e) {
+          // Ignorar si no hay imagen
+        }
+        
+        if (response.ok || camResponse.ok) {
           ws.send(JSON.stringify({
             type: 'telemetry',
-            status: telescopeData.Connected ? 'Conectado' : 'Desconectado', 
+            status: mountData.Connected ? 'Conectado' : 'Desconectado', 
             data: { 
-              ra: telescopeData.RightAscension || 0,
-              dec: telescopeData.Declination || 0,
-              tracking: telescopeData.Tracking || false
+              ra: mountData.RightAscension || 0,
+              dec: mountData.Declination || 0,
+              tracking: mountData.Tracking || false,
+              cameraConnected: camData.Connected || false,
+              temperature: camData.Temperature || 0,
+              coolerOn: camData.CoolerOn || false,
+              weather: {
+                connected: weatherData.Connected || false,
+                temperature: weatherData.Temperature,
+                humidity: weatherData.Humidity,
+                dewPoint: weatherData.DewPoint,
+                pressure: weatherData.Pressure
+              }
             }
           }));
         } else {
@@ -68,6 +116,18 @@ function conectar() {
       const comando = JSON.parse(data);
       console.log(`\n[${new Date().toLocaleTimeString()}] COMANDO RECIBIDO:`, comando.accion_requerida);
       
+      if (comando.accion_requerida === 'conectar_equipo') {
+        console.log(`-> NINA: Orden de conectar equipo...`);
+        try {
+          // Intentar conectar montura y camara
+          await fetch(`${NINA_API_URL}/equipment/mount/connect`, { method: 'GET' });
+          await fetch(`${NINA_API_URL}/equipment/camera/connect`, { method: 'GET' });
+          console.log('-> NINA: Comandos de conexion enviados.');
+        } catch (err) {
+          console.error('-> Error al conectar equipo:', err.message);
+        }
+      }
+
       if (comando.accion_requerida === 'iniciar_observacion') {
         console.log(`-> NINA: Orden de mover telescopio a ${comando.parametros.objeto}...`);
         
@@ -75,15 +135,15 @@ function conectar() {
           const ra = parseFloat(comando.parametros.ascension_recta);
           const dec = parseFloat(comando.parametros.declinacion);
           
-          console.log(`-> Coordenadas a enviar: AR=${ra}, DEC=${dec}`);
+          // NINA Advanced API v2 expects RA and DEC in degrees as query parameters
+          // RA in hours * 15 = RA in degrees
+          const raDegrees = ra * 15;
+          const decDegrees = dec;
           
-          const response = await fetch(`${NINA_API_URL}/equipment/telescope/slew`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              RightAscension: ra,
-              Declination: dec
-            })
+          console.log(`-> Moviendo telescopio a AR=${raDegrees.toFixed(4)}°, DEC=${decDegrees.toFixed(4)}°`);
+          
+          const response = await fetch(`${NINA_API_URL}/equipment/mount/slew?ra=${raDegrees}&dec=${decDegrees}&waitForResult=false&center=true`, {
+            method: 'GET' // The API uses GET for slew in v2
           });
 
           if (response.ok) {
@@ -100,13 +160,29 @@ function conectar() {
         }
       }
       
-      if (comando.accion_requerida === 'abortar_secuencia') {
-        console.log(`-> NINA: ¡ABORTANDO MOVIMIENTO!`);
+      if (comando.accion_requerida === 'abortar_secuencia' || comando.accion_requerida === 'abortar_todo') {
+        console.log(`-> NINA: ¡ABORTANDO MOVIMIENTO Y SECUENCIAS!`);
         try {
-          await fetch(`${NINA_API_URL}/equipment/telescope/abort`, { method: 'POST' });
-          console.log('-> NINA detuvo el telescopio.');
+          await fetch(`${NINA_API_URL}/equipment/mount/slew/stop`, { method: 'GET' });
+          await fetch(`${NINA_API_URL}/application/sequence/stop`, { method: 'GET' });
+          console.log('-> NINA detuvo el telescopio y las secuencias.');
         } catch (err) {
           console.error('-> Error al detener NINA:', err.message);
+        }
+      }
+
+      if (comando.accion_requerida === 'tomar_vista_previa') {
+        console.log(`-> NINA: Orden de tomar vista previa (Snapshot)...`);
+        try {
+          // NINA Advanced API v2 allows taking an image.
+          // We assume a simple exposure.
+          const exposureTime = comando.parametros.exposicion || 5;
+          await fetch(`${NINA_API_URL}/equipment/camera/expose?time=${exposureTime}&type=Light`, { method: 'GET' });
+          console.log(`-> NINA: Exposición de ${exposureTime}s iniciada.`);
+          ws.send(JSON.stringify({ type: 'telemetry', status: 'Tomando foto...' }));
+        } catch (err) {
+          console.error('-> Error al tomar foto:', err.message);
+          ws.send(JSON.stringify({ type: 'error', message: `Error al tomar foto: ${err.message}` }));
         }
       }
       

@@ -10,13 +10,21 @@ interface CatalogObject {
   ascension_recta: string;
   declinacion: string;
   url_imagen_referencia: string;
+  requiere_aprobacion: number;
 }
 
 export function ControlRoom() {
   const { user, token } = useAuthStore();
   const [catalog, setCatalog] = useState<CatalogObject[]>([]);
   const [status, setStatus] = useState('Conectando...');
-  const [telemetry, setTelemetry] = useState({ ra: 0, dec: 0, tracking: false });
+  const [telemetry, setTelemetry] = useState({ 
+    ra: 0, 
+    dec: 0, 
+    tracking: false,
+    cameraConnected: false,
+    temperature: 0,
+    coolerOn: false
+  });
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [isObserving, setIsObserving] = useState(false);
   const [hasActiveReservation, setHasActiveReservation] = useState(false);
@@ -72,7 +80,10 @@ export function ControlRoom() {
             setTelemetry({
               ra: data.data.ra || 0,
               dec: data.data.dec || 0,
-              tracking: data.data.tracking || false
+              tracking: data.data.tracking || false,
+              cameraConnected: data.data.cameraConnected || false,
+              temperature: data.data.temperature || 0,
+              coolerOn: data.data.coolerOn || false
             });
           }
         } else if (data.type === 'image') {
@@ -114,6 +125,19 @@ export function ControlRoom() {
   };
 
   const handleObserve = (obj: CatalogObject) => {
+    if (obj.requiere_aprobacion === 1) {
+      if (user?.rol !== 'Administrador') {
+        const confirm = window.confirm(`⚠️ ADVERTENCIA: Observar ${obj.nombre} requiere aprobación del administrador por motivos de seguridad (riesgo de daño al equipo). ¿Deseas solicitar aprobación?`);
+        if (confirm) {
+          alert('Solicitud enviada al administrador. (Esta función se implementará completamente en la próxima actualización).');
+        }
+        return;
+      } else {
+        const confirm = window.confirm(`⚠️ ADVERTENCIA DE SEGURIDAD: Estás a punto de apuntar a ${obj.nombre}. Asegúrate de tener los filtros solares adecuados instalados. ¿Continuar bajo tu propio riesgo?`);
+        if (!confirm) return;
+      }
+    }
+
     setIsObserving(true);
     setStatus('Moviendo');
     
@@ -147,6 +171,15 @@ export function ControlRoom() {
     setTimeout(() => setStatus('En Reposo'), 2000);
   };
 
+  const handlePreview = () => {
+    if (!hasActiveReservation) {
+      setError('Debes tener una reserva activa para tomar una vista previa.');
+      return;
+    }
+    setStatus('Tomando foto...');
+    sendCommand('tomar_vista_previa', { exposicion: 5 }); // 5 segundos de exposicion por defecto
+  };
+
   return (
     <div className="space-y-6">
       <header className="mb-8 flex justify-between items-center">
@@ -165,9 +198,21 @@ export function ControlRoom() {
             </span>
           )}
           <div className="bg-gray-800 border border-gray-700 px-4 py-2 rounded-lg flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${status === 'En Reposo' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></div>
+            <div className={`w-3 h-3 rounded-full ${status === 'Conectado' || status === 'Moviendo...' || status === 'En Reposo' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></div>
             <span className="text-white font-medium">{status}</span>
           </div>
+          
+          <button
+            onClick={() => sendCommand('conectar_equipo')}
+            disabled={!hasActiveReservation || status === 'Conectado' || status === 'Moviendo...' || status === 'En Reposo'}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
+              hasActiveReservation && status !== 'Conectado' && status !== 'Moviendo...' && status !== 'En Reposo'
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            Conectar Equipo
+          </button>
           
           <button
             onClick={handleStop}
@@ -180,6 +225,18 @@ export function ControlRoom() {
           >
             <StopCircle className="w-5 h-5" />
             Abortar
+          </button>
+          
+          <button
+            onClick={handlePreview}
+            disabled={!hasActiveReservation || isObserving || status === 'Tomando foto...'}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
+              hasActiveReservation && !isObserving && status !== 'Tomando foto...'
+                ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
+                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            Vista Previa
           </button>
         </div>
       </header>
@@ -219,6 +276,12 @@ export function ControlRoom() {
                     <span>AR: {obj.ascension_recta}</span>
                     <span>DEC: {obj.declinacion}</span>
                   </div>
+                  
+                  {obj.requiere_aprobacion === 1 && (
+                    <div className="mb-3 text-xs text-amber-500 bg-amber-500/10 p-2 rounded border border-amber-500/20">
+                      ⚠️ Requiere aprobación del admin
+                    </div>
+                  )}
                   
                   <button
                     onClick={() => handleObserve(obj)}
@@ -272,9 +335,13 @@ export function ControlRoom() {
                 </span>
               </div>
               <div className="flex gap-6">
-                <span>EXP: --</span>
-                <span>GAIN: --</span>
-                <span>BIN: --</span>
+                <span className={telemetry.cameraConnected ? "text-emerald-400" : "text-gray-500"}>
+                  CAM: {telemetry.cameraConnected ? 'OK' : 'OFF'}
+                </span>
+                <span>TEMP: {telemetry.temperature.toFixed(1)}°C</span>
+                <span className={telemetry.coolerOn ? "text-blue-400" : "text-gray-500"}>
+                  COOLER: {telemetry.coolerOn ? 'ON' : 'OFF'}
+                </span>
               </div>
             </div>
           </div>
