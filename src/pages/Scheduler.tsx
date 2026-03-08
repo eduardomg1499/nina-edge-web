@@ -98,14 +98,14 @@ export function Scheduler() {
         </div>
       )}
 
-      <div className="flex gap-4 mb-6">
+      <div className="flex gap-2 md:gap-4 mb-6 overflow-x-auto pb-2 custom-scrollbar">
         {[0, 1, 2, 3, 4].map((offset) => {
           const date = addDays(new Date(), offset);
           return (
             <button
               key={offset}
               onClick={() => setSelectedDate(date)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-3 md:px-4 py-2 rounded-lg transition-colors whitespace-nowrap text-sm md:text-base ${
                 isSameDay(date, selectedDate)
                   ? 'bg-indigo-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'

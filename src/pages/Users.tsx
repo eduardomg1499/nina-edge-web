@@ -143,33 +143,33 @@ export function Users() {
 
         {/* Users List */}
         <div className="lg:col-span-2">
-          <div className="bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden">
-            <table className="w-full text-left text-sm text-gray-400">
+          <div className="bg-gray-800 border border-gray-700 rounded-2xl overflow-hidden overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left text-sm text-gray-400 min-w-[600px]">
               <thead className="bg-gray-900/50 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-6 py-4 font-medium">Nombre</th>
-                  <th className="px-6 py-4 font-medium">Email</th>
-                  <th className="px-6 py-4 font-medium">Rol</th>
-                  <th className="px-6 py-4 font-medium text-right">Acciones</th>
+                  <th className="px-4 md:px-6 py-4 font-medium">Nombre</th>
+                  <th className="px-4 md:px-6 py-4 font-medium">Email</th>
+                  <th className="px-4 md:px-6 py-4 font-medium">Rol</th>
+                  <th className="px-4 md:px-6 py-4 font-medium text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {users.map((u) => (
                   <tr key={u.id} className="hover:bg-gray-700/50 transition-colors">
-                    <td className="px-6 py-4 text-white font-medium">{u.nombre}</td>
-                    <td className="px-6 py-4">{u.email}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
+                    <td className="px-4 md:px-6 py-4 text-white font-medium">{u.nombre}</td>
+                    <td className="px-4 md:px-6 py-4">{u.email}</td>
+                    <td className="px-4 md:px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${
                         u.rol === 'Administrador' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-gray-600/50 text-gray-300'
                       }`}>
                         {u.rol}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 md:px-6 py-4 text-right">
                       <button
                         onClick={() => handleDelete(u.id)}
                         disabled={u.id === user?.id}
-                        className={`p-2 rounded-lg transition-colors ${
+                        className={`p-2 rounded-lg transition-colors inline-block ${
                           u.id === user?.id 
                             ? 'text-gray-600 cursor-not-allowed' 
                             : 'text-red-400 hover:bg-red-500/10'
