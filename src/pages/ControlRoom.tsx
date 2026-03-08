@@ -31,6 +31,28 @@ export function ControlRoom() {
   const [error, setError] = useState('');
   const wsRef = useRef<WebSocket | null>(null);
 
+  // Parse coordinates from string (e.g. "05h35m17s" -> decimal hours)
+  const parseCoord = (coordStr: string) => {
+    const matches = coordStr.match(/([+-]?\d+)[hdm°]?(\d+)?[ms']?(\d+)?[s"]?/);
+    if (!matches) return 0;
+    const d = parseFloat(matches[1] || '0');
+    const m = parseFloat(matches[2] || '0');
+    const s = parseFloat(matches[3] || '0');
+    const sign = d < 0 || coordStr.startsWith('-') ? -1 : 1;
+    return sign * (Math.abs(d) + m/60 + s/3600);
+  };
+
+  // Calculate Local Sidereal Time (LST) for UPIICSA (Longitude ~ -99.09)
+  const getLST = () => {
+    const now = new Date();
+    const timeInMs = now.getTime();
+    const j2000 = new Date(Date.UTC(2000, 0, 1, 12, 0, 0)).getTime();
+    const daysSinceJ2000 = (timeInMs - j2000) / 86400000;
+    const longitude = -99.09;
+    const lst = (18.697374558 + 24.06570982441908 * daysSinceJ2000 + longitude / 15) % 24;
+    return lst < 0 ? lst + 24 : lst;
+  };
+
   useEffect(() => {
     checkActiveReservation();
     fetchCatalog();
@@ -56,7 +78,24 @@ export function ControlRoom() {
   const fetchCatalog = async () => {
     try {
       const data = await api.get('/catalog');
-      setCatalog(data);
+      
+      // Sort catalog by visibility (closest to meridian / LST)
+      const currentLST = getLST();
+      const sortedData = [...data].sort((a, b) => {
+        const raA = parseCoord(a.ascension_recta);
+        const raB = parseCoord(b.ascension_recta);
+        
+        // Calculate hour angle (difference between LST and RA)
+        let haA = Math.abs(currentLST - raA);
+        if (haA > 12) haA = 24 - haA;
+        
+        let haB = Math.abs(currentLST - raB);
+        if (haB > 12) haB = 24 - haB;
+        
+        return haA - haB;
+      });
+      
+      setCatalog(sortedData);
     } catch (err: any) {
       setError(err.message);
     }
@@ -139,22 +178,8 @@ export function ControlRoom() {
     }
 
     setIsObserving(true);
-    setStatus('Moviendo');
+    setStatus('Moviendo telescopio y encuadrando...');
     
-    // Parse coordinates from string (e.g. "05h35m17s" -> decimal hours)
-    // This is a simplified parser, in production you'd want robust coordinate parsing
-    // or store decimal coordinates in the DB directly.
-    const parseCoord = (coordStr: string) => {
-      // Basic extraction of numbers
-      const matches = coordStr.match(/([+-]?\d+)[hdm°]?(\d+)?[ms']?(\d+)?[s"]?/);
-      if (!matches) return 0;
-      const d = parseFloat(matches[1] || '0');
-      const m = parseFloat(matches[2] || '0');
-      const s = parseFloat(matches[3] || '0');
-      const sign = d < 0 || coordStr.startsWith('-') ? -1 : 1;
-      return sign * (Math.abs(d) + m/60 + s/3600);
-    };
-
     sendCommand('iniciar_observacion', {
       objeto: obj.nombre,
       ascension_recta: parseCoord(obj.ascension_recta), // Send as decimal for NINA

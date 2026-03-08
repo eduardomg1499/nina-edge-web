@@ -142,13 +142,18 @@ function conectar() {
           
           console.log(`-> Moviendo telescopio a AR=${raDegrees.toFixed(4)}°, DEC=${decDegrees.toFixed(4)}°`);
           
+          // 1. Desaparcar el telescopio primero (por si esta aparcado)
+          console.log(`-> NINA: Desaparcando telescopio...`);
+          await fetch(`${NINA_API_URL}/equipment/mount/unpark`, { method: 'GET' });
+          
+          // 2. Enviar comando de movimiento (Slew)
           const response = await fetch(`${NINA_API_URL}/equipment/mount/slew?ra=${raDegrees}&dec=${decDegrees}&waitForResult=false&center=true`, {
             method: 'GET' // The API uses GET for slew in v2
           });
 
           if (response.ok) {
             console.log('-> NINA confirmo el movimiento. El telescopio se esta moviendo.');
-            ws.send(JSON.stringify({ type: 'telemetry', status: 'Moviendo...' }));
+            ws.send(JSON.stringify({ type: 'telemetry', status: 'Moviendo y encuadrando...' }));
           } else {
             const errorText = await response.text();
             console.log(`-> NINA rechazo el movimiento. Error: ${errorText}`);
@@ -174,10 +179,16 @@ function conectar() {
       if (comando.accion_requerida === 'tomar_vista_previa') {
         console.log(`-> NINA: Orden de tomar vista previa (Snapshot)...`);
         try {
-          // NINA Advanced API v2 allows taking an image.
-          // We assume a simple exposure.
           const exposureTime = comando.parametros.exposicion || 5;
-          await fetch(`${NINA_API_URL}/equipment/camera/expose?time=${exposureTime}&type=Light`, { method: 'GET' });
+          // El comando correcto en NINA Advanced API v2 para tomar una foto simple suele ser /equipment/camera/snapshot o expose
+          // Intentaremos con snapshot y si no, expose.
+          const response = await fetch(`${NINA_API_URL}/equipment/camera/snapshot?time=${exposureTime}&type=Light`, { method: 'GET' });
+          
+          if (!response.ok) {
+            // Fallback a expose si snapshot no existe
+            await fetch(`${NINA_API_URL}/equipment/camera/expose?time=${exposureTime}&type=Light`, { method: 'GET' });
+          }
+          
           console.log(`-> NINA: Exposición de ${exposureTime}s iniciada.`);
           ws.send(JSON.stringify({ type: 'telemetry', status: 'Tomando foto...' }));
         } catch (err) {
