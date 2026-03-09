@@ -84,6 +84,9 @@ export function ControlRoom() {
       // Sort catalog by visibility (closest to meridian / LST)
       const currentLST = getLST();
       const sortedData = [...data].sort((a, b) => {
+        if (a.designacion === 'Sol') return -1;
+        if (b.designacion === 'Sol') return 1;
+
         const raA = parseCoord(a.ascension_recta);
         const raB = parseCoord(b.ascension_recta);
         
@@ -211,6 +214,12 @@ export function ControlRoom() {
     setTimeout(() => setStatus('En Reposo'), 2000);
   };
 
+  const handlePark = () => {
+    if (isObserver) return;
+    setStatus('Aparcando');
+    sendCommand('aparcar_telescopio');
+  };
+
   const handlePreview = () => {
     if (isObserver) return;
     if (!hasActiveReservation) {
@@ -228,25 +237,40 @@ export function ControlRoom() {
   const handleDownloadImage = async () => {
     if (!currentImage) return;
     try {
-      let blob;
-      if (currentImage.startsWith('data:')) {
-        const res = await fetch(currentImage);
-        blob = await res.blob();
-      } else {
-        const res = await fetch(currentImage);
-        blob = await res.blob();
+      const res = await fetch(currentImage);
+      const blob = await res.blob();
+      const filename = `nina-capture-${Date.now()}.jpg`;
+      const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+
+      // Try Web Share API first (best for iOS to save to gallery)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Captura NINA',
+          });
+          return; // Successfully shared/saved
+        } catch (shareErr: any) {
+          console.log('Share cancelled or failed', shareErr);
+          if (shareErr.name === 'AbortError') {
+            return; // User cancelled the share sheet, don't fallback
+          }
+          // If it failed for another reason, fallback to standard download
+        }
       }
+
+      // Standard download fallback
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `nina-capture-${Date.now()}.jpg`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error downloading image:', err);
-      // Fallback
+      // Ultimate fallback
       const a = document.createElement('a');
       a.href = currentImage;
       a.download = `nina-capture-${Date.now()}.jpg`;
@@ -322,6 +346,18 @@ export function ControlRoom() {
                 <StopCircle className="w-4 h-4" />
                 Abortar
               </button>
+
+              <button
+                onClick={handlePark}
+                disabled={!hasActiveReservation || status === 'Aparcando'}
+                className={`px-3 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm flex-1 md:flex-none ${
+                  hasActiveReservation && status !== 'Aparcando'
+                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                    : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                Aparcar
+              </button>
               
               <button
                 onClick={handlePreview}
@@ -379,7 +415,17 @@ export function ControlRoom() {
                 <p className="text-gray-400 text-sm md:text-base text-center px-4">
                   Por favor espere, el telescopio se está moviendo y resolviendo las coordenadas...
                 </p>
-                <p className="text-indigo-400 text-xs mt-4 font-mono animate-pulse">Estado actual: {status}</p>
+                <p className="text-indigo-400 text-xs mt-4 font-mono animate-pulse mb-6">Estado actual: {status}</p>
+
+                {!isObserver && (
+                  <button
+                    onClick={handleStop}
+                    className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 shadow-lg shadow-red-900/50 transition-colors z-30 relative cursor-pointer"
+                  >
+                    <StopCircle className="w-5 h-5" />
+                    Abortar Encuadre
+                  </button>
+                )}
               </div>
             )}
 

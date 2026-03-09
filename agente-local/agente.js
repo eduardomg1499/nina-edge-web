@@ -16,6 +16,19 @@ console.log('====================================');
 console.log(' NINA Edge - Agente Local Iniciando');
 console.log('====================================\n');
 
+let currentOperationStatus = '';
+let operationTimeout = null;
+
+function setOperationStatus(status, durationMs = 0) {
+  currentOperationStatus = status;
+  if (operationTimeout) clearTimeout(operationTimeout);
+  if (durationMs > 0) {
+    operationTimeout = setTimeout(() => {
+      currentOperationStatus = '';
+    }, durationMs);
+  }
+}
+
 function conectar() {
   console.log(`[${new Date().toLocaleTimeString()}] Intentando conectar a la plataforma web...`);
   
@@ -75,10 +88,19 @@ function conectar() {
           // Ignorar si no hay imagen
         }
         
+        let reportedStatus = currentOperationStatus;
+        if (!reportedStatus) {
+          if (mountData.Slewing) {
+            reportedStatus = 'Moviendo telescopio...';
+          } else {
+            reportedStatus = mountData.Connected ? 'Conectado' : 'Desconectado';
+          }
+        }
+
         if (response.ok || camResponse.ok) {
           ws.send(JSON.stringify({
             type: 'telemetry',
-            status: mountData.Connected ? 'Conectado' : 'Desconectado', 
+            status: reportedStatus, 
             data: { 
               ra: mountData.RightAscension || 0,
               dec: mountData.Declination || 0,
@@ -131,6 +153,7 @@ function conectar() {
 
       if (comando.accion_requerida === 'iniciar_observacion') {
         console.log(`-> NINA: Orden de mover telescopio a ${comando.parametros.objeto}...`);
+        setOperationStatus('Moviendo y encuadrando...', 30000);
         
         try {
           const ra = parseFloat(comando.parametros.ascension_recta);
@@ -162,11 +185,13 @@ function conectar() {
             console.log('-> NINA confirmo el movimiento. El telescopio se esta moviendo.');
             ws.send(JSON.stringify({ type: 'telemetry', status: 'Moviendo y encuadrando...' }));
           } else {
+            setOperationStatus('');
             const errorText = await response.text();
             console.log(`-> NINA rechazo el movimiento. Error: ${errorText}`);
             ws.send(JSON.stringify({ type: 'error', message: `NINA rechazo el movimiento: ${response.statusText}` }));
           }
         } catch (err) {
+          setOperationStatus('');
           console.error('-> Error al comunicarse con NINA:', err.message);
           ws.send(JSON.stringify({ type: 'error', message: `Error de red con NINA: ${err.message}` }));
         }
@@ -174,6 +199,7 @@ function conectar() {
       
       if (comando.accion_requerida === 'abortar_secuencia' || comando.accion_requerida === 'abortar_todo') {
         console.log(`-> NINA: ¡ABORTANDO MOVIMIENTO Y SECUENCIAS!`);
+        setOperationStatus('En Reposo', 2000);
         try {
           await fetch(`${NINA_API_URL}/equipment/mount/slew/stop`, { method: 'GET' });
           await fetch(`${NINA_API_URL}/sequence/stop`, { method: 'GET' });
@@ -183,8 +209,21 @@ function conectar() {
         }
       }
 
+      if (comando.accion_requerida === 'aparcar_telescopio') {
+        console.log(`-> NINA: Aparcando telescopio...`);
+        setOperationStatus('Aparcando', 15000);
+        try {
+          await fetch(`${NINA_API_URL}/equipment/mount/park`, { method: 'GET' });
+          console.log('-> NINA aparcó el telescopio.');
+          ws.send(JSON.stringify({ type: 'telemetry', status: 'En Reposo' }));
+        } catch (err) {
+          console.error('-> Error al aparcar NINA:', err.message);
+        }
+      }
+
       if (comando.accion_requerida === 'tomar_vista_previa') {
         console.log(`-> NINA: Orden de tomar vista previa (Capture)...`);
+        setOperationStatus('Tomando foto...', 10000);
         try {
           const exposureTime = comando.parametros.exposicion || 5;
           // El comando correcto en NINA Advanced API v2 para tomar una foto es /equipment/camera/capture

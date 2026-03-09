@@ -7,7 +7,7 @@ interface User {
   id: number;
   nombre: string;
   email: string;
-  rol: 'Administrador' | 'Observador';
+  rol: 'Administrador' | 'Observador' | 'Usuario';
 }
 
 export function Users() {
@@ -16,7 +16,7 @@ export function Users() {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rol, setRol] = useState<'Administrador' | 'Observador'>('Observador');
+  const [rol, setRol] = useState<'Administrador' | 'Observador' | 'Usuario'>('Usuario');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function Users() {
       setNombre('');
       setEmail('');
       setPassword('');
-      setRol('Observador');
+      setRol('Usuario');
       fetchUsers();
     } catch (err: any) {
       setError(err.message);
@@ -126,7 +126,8 @@ export function Users() {
                   onChange={(e) => setRol(e.target.value as any)}
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
                 >
-                  <option value="Observador">Observador</option>
+                  <option value="Usuario">Usuario (Reserva y Control)</option>
+                  <option value="Observador">Observador (Solo ver)</option>
                   <option value="Administrador">Administrador</option>
                 </select>
               </div>
@@ -160,7 +161,9 @@ export function Users() {
                     <td className="px-4 md:px-6 py-4">{u.email}</td>
                     <td className="px-4 md:px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${
-                        u.rol === 'Administrador' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-gray-600/50 text-gray-300'
+                        u.rol === 'Administrador' ? 'bg-indigo-500/20 text-indigo-300' : 
+                        u.rol === 'Usuario' ? 'bg-emerald-500/20 text-emerald-300' : 
+                        'bg-gray-600/50 text-gray-300'
                       }`}>
                         {u.rol}
                       </span>

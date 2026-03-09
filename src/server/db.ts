@@ -18,7 +18,7 @@ export function initDb() {
       nombre TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      rol TEXT NOT NULL CHECK(rol IN ('Administrador', 'Observador'))
+      rol TEXT NOT NULL CHECK(rol IN ('Administrador', 'Observador', 'Usuario'))
     );
 
     CREATE TABLE IF NOT EXISTS reservas (
@@ -62,6 +62,29 @@ export function initDb() {
     db.exec("ALTER TABLE catalogo_objetos ADD COLUMN requiere_aprobacion BOOLEAN DEFAULT 0");
   } catch (e) {
     // Column already exists
+  }
+
+  // Migrate usuarios table to allow 'Usuario' role
+  try {
+    db.exec(`
+      PRAGMA foreign_keys=off;
+      BEGIN TRANSACTION;
+      CREATE TABLE IF NOT EXISTS usuarios_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        rol TEXT NOT NULL CHECK(rol IN ('Administrador', 'Observador', 'Usuario'))
+      );
+      INSERT OR IGNORE INTO usuarios_new SELECT * FROM usuarios;
+      DROP TABLE usuarios;
+      ALTER TABLE usuarios_new RENAME TO usuarios;
+      COMMIT;
+      PRAGMA foreign_keys=on;
+    `);
+  } catch (e) {
+    console.error("Migration error:", e);
+    db.exec("ROLLBACK; PRAGMA foreign_keys=on;");
   }
 
   // Insert default admin user if not exists

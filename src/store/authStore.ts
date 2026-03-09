@@ -4,7 +4,7 @@ interface User {
   id: number;
   nombre: string;
   email: string;
-  rol: 'Administrador' | 'Observador';
+  rol: 'Administrador' | 'Observador' | 'Usuario';
 }
 
 interface AuthState {
