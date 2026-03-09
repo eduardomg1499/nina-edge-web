@@ -16,7 +16,7 @@ function PrivateRoute({ children, roles }: { children: React.ReactNode, roles?: 
   }
   
   if (roles && !roles.includes(user.rol)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/control-room" replace />;
   }
   
   return <>{children}</>;
@@ -29,8 +29,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="scheduler" element={<Scheduler />} />
+          <Route index element={<PrivateRoute roles={['Administrador']}><Dashboard /></PrivateRoute>} />
+          <Route path="scheduler" element={<PrivateRoute roles={['Administrador']}><Scheduler /></PrivateRoute>} />
           <Route path="control-room" element={<ControlRoom />} />
           <Route path="users" element={<PrivateRoute roles={['Administrador']}><Users /></PrivateRoute>} />
         </Route>

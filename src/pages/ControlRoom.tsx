@@ -117,7 +117,7 @@ export function ControlRoom() {
         const data = JSON.parse(event.data);
         if (data.type === 'telemetry') {
           setStatus(data.status);
-          if (data.status.includes('Moviendo')) {
+          if (data.status.includes('Moviendo') || data.status.includes('Resolviendo') || data.status.includes('Centrando') || data.status.includes('Plate')) {
             setIsObserving(true);
           } else if (data.status === 'En Reposo' || data.status === 'Conectado') {
             setIsObserving(false);
@@ -225,14 +225,35 @@ export function ControlRoom() {
     window.open('/api/download-agent', '_blank');
   };
 
-  const handleDownloadImage = () => {
+  const handleDownloadImage = async () => {
     if (!currentImage) return;
-    const a = document.createElement('a');
-    a.href = currentImage;
-    a.download = `nina-capture-${Date.now()}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+      let blob;
+      if (currentImage.startsWith('data:')) {
+        const res = await fetch(currentImage);
+        blob = await res.blob();
+      } else {
+        const res = await fetch(currentImage);
+        blob = await res.blob();
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nina-capture-${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading image:', err);
+      // Fallback
+      const a = document.createElement('a');
+      a.href = currentImage;
+      a.download = `nina-capture-${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   };
 
   return (
@@ -241,7 +262,7 @@ export function ControlRoom() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3">
             <Telescope className="w-7 h-7 md:w-8 md:h-8 text-indigo-400" />
-            Sala de Control
+            Sala de Proyección
           </h1>
           <p className="text-sm md:text-base text-gray-400 mt-2">Control en tiempo real del telescopio NINA Edge</p>
         </div>
@@ -271,7 +292,7 @@ export function ControlRoom() {
             </span>
           )}
           <div className="bg-gray-800 border border-gray-700 px-3 py-2 rounded-lg flex items-center gap-2 flex-1 md:flex-none justify-center">
-            <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${status === 'Conectado' || status === 'En Reposo' ? 'bg-emerald-500' : status.includes('Moviendo') ? 'bg-indigo-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`}></div>
+            <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${status === 'Conectado' || status === 'En Reposo' ? 'bg-emerald-500' : (status.includes('Moviendo') || status.includes('Resolviendo') || status.includes('Centrando') || status.includes('Plate')) ? 'bg-indigo-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`}></div>
             <span className="text-white font-medium text-xs md:text-sm">{status}</span>
           </div>
           
@@ -279,9 +300,9 @@ export function ControlRoom() {
             <>
               <button
                 onClick={() => sendCommand('conectar_equipo')}
-                disabled={!hasActiveReservation || status === 'Conectado' || status.includes('Moviendo') || status === 'En Reposo'}
+                disabled={!hasActiveReservation || status === 'Conectado' || status.includes('Moviendo') || status.includes('Resolviendo') || status.includes('Centrando') || status === 'En Reposo'}
                 className={`px-3 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm flex-1 md:flex-none ${
-                  hasActiveReservation && status !== 'Conectado' && !status.includes('Moviendo') && status !== 'En Reposo'
+                  hasActiveReservation && status !== 'Conectado' && !status.includes('Moviendo') && !status.includes('Resolviendo') && !status.includes('Centrando') && status !== 'En Reposo'
                     ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
                     : 'bg-gray-800 text-gray-500 cursor-not-allowed'
                 }`}
@@ -348,7 +369,7 @@ export function ControlRoom() {
             )}
 
             {/* Encuadrando Animation Overlay */}
-            {isObserving && status.includes('Moviendo') && (
+            {isObserving && (status.includes('Moviendo') || status.includes('Resolviendo') || status.includes('Centrando') || status.includes('Plate')) && (
               <div className="absolute inset-0 bg-black/80 z-20 flex flex-col items-center justify-center text-white backdrop-blur-sm">
                 <div className="relative">
                   <Telescope className="w-20 h-20 text-indigo-500 animate-pulse" />
@@ -356,8 +377,9 @@ export function ControlRoom() {
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold mt-8 mb-2">Encuadrando Objeto</h3>
                 <p className="text-gray-400 text-sm md:text-base text-center px-4">
-                  Por favor espere, el telescopio se está moviendo a las coordenadas...
+                  Por favor espere, el telescopio se está moviendo y resolviendo las coordenadas...
                 </p>
+                <p className="text-indigo-400 text-xs mt-4 font-mono animate-pulse">Estado actual: {status}</p>
               </div>
             )}
 

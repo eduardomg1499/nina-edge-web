@@ -122,7 +122,10 @@ export function setupRoutes(app: Express) {
 
   // Catalog routes
   app.get('/api/catalog', verifyToken, (req: any, res: any) => {
-    const objects = db.prepare('SELECT * FROM catalogo_objetos').all();
+    const objects = db.prepare(`
+      SELECT * FROM catalogo_objetos 
+      ORDER BY CASE WHEN designacion = 'Sol' THEN 0 ELSE 1 END, id ASC
+    `).all();
     res.json(objects);
   });
 }

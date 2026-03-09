@@ -93,12 +93,13 @@ export function initDb() {
 
   // Update existing objects with real images
   db.exec(`
-    UPDATE catalogo_objetos SET url_imagen_referencia = 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Orion_Nebula_-_Hubble_2006_mosaic_18000.jpg/800px-Orion_Nebula_-_Hubble_2006_mosaic_18000.jpg' WHERE designacion = 'M42';
-    UPDATE catalogo_objetos SET url_imagen_referencia = 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Andromeda_Galaxy_%28with_h-alpha%29.jpg/800px-Andromeda_Galaxy_%28with_h-alpha%29.jpg' WHERE designacion = 'M31';
-    UPDATE catalogo_objetos SET url_imagen_referencia = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Pleiades_large.jpg/800px-Pleiades_large.jpg' WHERE designacion = 'M45';
+    UPDATE catalogo_objetos SET url_imagen_referencia = 'https://science.nasa.gov/wp-content/uploads/2023/04/orion-nebula-xlarge_web-jpg.webp?resize=1200,1200' WHERE designacion = 'M42';
+    UPDATE catalogo_objetos SET url_imagen_referencia = 'blob:https://app.astrobin.com/371eca39-e155-4d13-81dd-273a9cb112d8' WHERE designacion = 'M31';
+    UPDATE catalogo_objetos SET url_imagen_referencia = 'https://www.lanasa.net/application/files/thumbnails/large/5417/6367/7732/newspleyades.jpg' WHERE designacion = 'M45';
     UPDATE catalogo_objetos SET url_imagen_referencia = 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/M101_hires_STScI-PRC2006-10a.jpg/800px-M101_hires_STScI-PRC2006-10a.jpg' WHERE designacion = 'M101';
     UPDATE catalogo_objetos SET url_imagen_referencia = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/M104_ngc4594_sombrero_galaxy_hi-res.jpg/800px-M104_ngc4594_sombrero_galaxy_hi-res.jpg' WHERE designacion = 'M104';
-    UPDATE catalogo_objetos SET url_imagen_referencia = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg/800px-The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg' WHERE designacion = 'Sol';
+    UPDATE catalogo_objetos SET url_imagen_referencia = 'https://ichef.bbci.co.uk/ace/ws/640/amz/worldservice/live/assets/images/2013/07/08/130708103752_3_h-alpha_glow.jpg.webp' WHERE designacion = 'Sol';
+    UPDATE catalogo_objetos SET url_imagen_referencia = 'https://assets.science.nasa.gov/dynamicimage/assets/science/missions/hubble/releases/2007/05/STScI-01EVVJ5CSW83EJHQACVP4N6WEJ.tif?w=2000' WHERE designacion = 'M81';
   `);
 
   const insertObj = db.prepare('INSERT INTO catalogo_objetos (nombre, designacion, ascension_recta, declinacion, url_imagen_referencia, requiere_aprobacion) VALUES (?, ?, ?, ?, ?, ?)');
@@ -115,7 +116,7 @@ export function initDb() {
   
   const solExists = db.prepare('SELECT id FROM catalogo_objetos WHERE designacion = ?').get('Sol');
   if (!solExists) {
-    insertObj.run('El Sol', 'Sol', '00h00m00s', '+00d00m00s', 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg/800px-The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg', 1);
+    insertObj.run('El Sol', 'Sol', '00h00m00s', '+00d00m00s', 'https://ichef.bbci.co.uk/ace/ws/640/amz/worldservice/live/assets/images/2013/07/08/130708103752_3_h-alpha_glow.jpg.webp', 1);
   }
 
   // New Spring/Summer objects
@@ -156,11 +157,16 @@ export function initDb() {
 
   const m81Exists = db.prepare('SELECT id FROM catalogo_objetos WHERE designacion = ?').get('M81');
   if (!m81Exists) {
-    insertObj.run('Galaxia de Bode', 'M81', '09h55m33s', '+69d03m55s', 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Messier_81_HST.jpg/800px-Messier_81_HST.jpg', 0);
+    insertObj.run('Galaxia de Bode', 'M81', '09h55m33s', '+69d03m55s', 'https://assets.science.nasa.gov/dynamicimage/assets/science/missions/hubble/releases/2007/05/STScI-01EVVJ5CSW83EJHQACVP4N6WEJ.tif?w=2000', 0);
   }
 
   const m82Exists = db.prepare('SELECT id FROM catalogo_objetos WHERE designacion = ?').get('M82');
   if (!m82Exists) {
-    insertObj.run('Galaxia del Cigarro', 'M82', '09h55m52s', '+69d40m47s', 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/M82_HST_ACS_2006-14-a-large_web.jpg/800px-M82_HST_ACS_2006-14-a-large_web.jpg', 0);
+    insertObj.run('Galaxia del Cigarro', 'M82', '09h55m52s', '+69d40m47s', 'https://cdn.astrobin.com/solutions/images/26579/2022/44f7adb6-4d65-4962-b4ff-8c6bcde4f61b-1642694429.png', 0);
+  } else {
+    db.exec(`UPDATE catalogo_objetos SET url_imagen_referencia = 'https://cdn.astrobin.com/solutions/images/26579/2022/44f7adb6-4d65-4962-b4ff-8c6bcde4f61b-1642694429.png' WHERE designacion = 'M82'`);
   }
+
+  // Delete unwanted objects
+  db.exec(`DELETE FROM catalogo_objetos WHERE designacion NOT IN ('Sol', 'M42', 'M81', 'M45', 'M82', 'M31')`);
 }

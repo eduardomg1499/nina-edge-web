@@ -16,11 +16,13 @@ export function Layout() {
 
   const closeMenu = () => setIsMobileMenuOpen(false);
 
-  const navLinks = [
-    { to: '/', icon: Home, label: 'Dashboard' },
-    { to: '/scheduler', icon: Calendar, label: 'Reservas' },
-    { to: '/control-room', icon: Telescope, label: 'Sala de Control' },
-  ];
+  const navLinks = user?.rol === 'Observador' 
+    ? [ { to: '/control-room', icon: Telescope, label: 'Sala de Proyección' } ]
+    : [
+        { to: '/', icon: Home, label: 'Dashboard' },
+        { to: '/scheduler', icon: Calendar, label: 'Reservas' },
+        { to: '/control-room', icon: Telescope, label: 'Sala de Proyección' },
+      ];
 
   if (user?.rol === 'Administrador') {
     navLinks.push({ to: '/users', icon: Users, label: 'Usuarios' });
