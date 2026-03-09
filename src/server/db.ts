@@ -87,12 +87,20 @@ export function initDb() {
     db.exec("ROLLBACK; PRAGMA foreign_keys=on;");
   }
 
+  try {
+    db.exec("ALTER TABLE usuarios ADD COLUMN password_plain TEXT");
+    db.exec("UPDATE usuarios SET password_plain = 'admin123' WHERE email = 'admin@nina.com'");
+    db.exec("UPDATE usuarios SET password_plain = 'invitado123' WHERE email = 'invitado@nina.com'");
+  } catch (e) {
+    // Column already exists
+  }
+
   // Insert default admin user if not exists
   const adminExists = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('admin@nina.com');
   if (!adminExists) {
     const hash = bcrypt.hashSync('admin123', 10);
-    db.prepare('INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (?, ?, ?, ?)').run(
-      'Admin', 'admin@nina.com', hash, 'Administrador'
+    db.prepare('INSERT INTO usuarios (nombre, email, password_hash, rol, password_plain) VALUES (?, ?, ?, ?, ?)').run(
+      'Admin', 'admin@nina.com', hash, 'Administrador', 'admin123'
     );
   }
 
@@ -100,8 +108,8 @@ export function initDb() {
   const observerExists = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('invitado@nina.com');
   if (!observerExists) {
     const hash = bcrypt.hashSync('invitado123', 10);
-    db.prepare('INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (?, ?, ?, ?)').run(
-      'Invitado (Observador)', 'invitado@nina.com', hash, 'Observador'
+    db.prepare('INSERT INTO usuarios (nombre, email, password_hash, rol, password_plain) VALUES (?, ?, ?, ?, ?)').run(
+      'Invitado (Observador)', 'invitado@nina.com', hash, 'Observador', 'invitado123'
     );
   }
 

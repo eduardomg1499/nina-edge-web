@@ -8,6 +8,7 @@ interface User {
   nombre: string;
   email: string;
   rol: 'Administrador' | 'Observador' | 'Usuario';
+  password_plain?: string;
 }
 
 export function Users() {
@@ -150,6 +151,7 @@ export function Users() {
                 <tr>
                   <th className="px-4 md:px-6 py-4 font-medium">Nombre</th>
                   <th className="px-4 md:px-6 py-4 font-medium">Email</th>
+                  <th className="px-4 md:px-6 py-4 font-medium">Contrasena</th>
                   <th className="px-4 md:px-6 py-4 font-medium">Rol</th>
                   <th className="px-4 md:px-6 py-4 font-medium text-right">Acciones</th>
                 </tr>
@@ -159,6 +161,7 @@ export function Users() {
                   <tr key={u.id} className="hover:bg-gray-700/50 transition-colors">
                     <td className="px-4 md:px-6 py-4 text-white font-medium">{u.nombre}</td>
                     <td className="px-4 md:px-6 py-4">{u.email}</td>
+                    <td className="px-4 md:px-6 py-4 font-mono text-xs text-gray-300">{u.password_plain || '***'}</td>
                     <td className="px-4 md:px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${
                         u.rol === 'Administrador' ? 'bg-indigo-500/20 text-indigo-300' : 

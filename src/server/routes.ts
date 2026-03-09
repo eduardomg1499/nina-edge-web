@@ -36,7 +36,7 @@ export function setupRoutes(app: Express) {
   // Users routes
   app.get('/api/users', verifyToken, (req: any, res: any) => {
     if (req.user.rol !== 'Administrador') return res.status(403).json({ error: 'Acceso denegado' });
-    const users = db.prepare('SELECT id, nombre, email, rol FROM usuarios').all();
+    const users = db.prepare('SELECT id, nombre, email, rol, password_plain FROM usuarios').all();
     res.json(users);
   });
 
@@ -45,8 +45,8 @@ export function setupRoutes(app: Express) {
     const { nombre, email, password, rol } = req.body;
     try {
       const hash = bcrypt.hashSync(password, 10);
-      const result = db.prepare('INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (?, ?, ?, ?)').run(nombre, email, hash, rol);
-      res.json({ id: result.lastInsertRowid, nombre, email, rol });
+      const result = db.prepare('INSERT INTO usuarios (nombre, email, password_hash, rol, password_plain) VALUES (?, ?, ?, ?, ?)').run(nombre, email, hash, rol, password);
+      res.json({ id: result.lastInsertRowid, nombre, email, rol, password_plain: password });
     } catch (err) {
       res.status(400).json({ error: 'Error al crear usuario' });
     }
@@ -54,8 +54,18 @@ export function setupRoutes(app: Express) {
 
   app.delete('/api/users/:id', verifyToken, (req: any, res: any) => {
     if (req.user.rol !== 'Administrador') return res.status(403).json({ error: 'Acceso denegado' });
-    db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
-    res.json({ success: true });
+    try {
+      db.prepare('BEGIN TRANSACTION').run();
+      db.prepare('DELETE FROM logs_telemetria WHERE id_reserva IN (SELECT id FROM reservas WHERE id_usuario = ?)').run(req.params.id);
+      db.prepare('DELETE FROM reservas WHERE id_usuario = ?').run(req.params.id);
+      db.prepare('DELETE FROM aprobaciones WHERE id_usuario = ?').run(req.params.id);
+      db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
+      db.prepare('COMMIT').run();
+      res.json({ success: true });
+    } catch (err) {
+      db.prepare('ROLLBACK').run();
+      res.status(500).json({ error: 'Error al eliminar usuario' });
+    }
   });
 
   // Reservations routes
