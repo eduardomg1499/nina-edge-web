@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import { Telescope, StopCircle, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Telescope, StopCircle, Loader2, Image as ImageIcon, Download } from 'lucide-react';
 
 interface CatalogObject {
   id: number;
@@ -205,6 +205,10 @@ export function ControlRoom() {
     sendCommand('tomar_vista_previa', { exposicion: 5 }); // 5 segundos de exposicion por defecto
   };
 
+  const handleDownloadAgent = () => {
+    window.open('/api/download-agent', '_blank');
+  };
+
   return (
     <div className="space-y-6">
       <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -217,6 +221,17 @@ export function ControlRoom() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          {user?.rol === 'Administrador' && (
+            <button
+              onClick={handleDownloadAgent}
+              className="px-3 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700"
+              title="Descargar script del agente local"
+            >
+              <Download className="w-4 h-4" />
+              Agente
+            </button>
+          )}
+          
           {!hasActiveReservation && (
             <span className="text-amber-500 text-xs md:text-sm font-medium bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 w-full md:w-auto text-center">
               No tienes turno activo

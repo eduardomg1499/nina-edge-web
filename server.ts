@@ -3,6 +3,8 @@ import { createServer as createViteServer } from 'vite';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import http from 'http';
+import path from 'path';
+import fs from 'fs';
 import { setupRoutes } from './src/server/routes.js';
 import { setupWebSocket } from './src/server/websocket.js';
 import { initDb } from './src/server/db.js';
@@ -16,6 +18,16 @@ async function startServer() {
 
   app.use(cors());
   app.use(express.json());
+
+  // Endpoint para descargar el agente local
+  app.get('/api/download-agent', (req, res) => {
+    const agentPath = path.resolve(process.cwd(), 'agente-local', 'agente.js');
+    if (fs.existsSync(agentPath)) {
+      res.download(agentPath, 'agente.js');
+    } else {
+      res.status(404).send('Archivo del agente no encontrado');
+    }
+  });
 
   // Setup API routes
   setupRoutes(app);

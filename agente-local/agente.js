@@ -61,7 +61,8 @@ function conectar() {
 
         // Intentar obtener la ultima imagen
         try {
-          const imgResponse = await fetch(`${NINA_API_URL}/application/image`);
+          // NINA API v2 uses /prepared-image instead of /application/image
+          const imgResponse = await fetch(`${NINA_API_URL}/prepared-image?resize=true&size=800x600&quality=80&stream=true`);
           if (imgResponse.ok) {
             const buffer = await imgResponse.arrayBuffer();
             const base64 = Buffer.from(buffer).toString('base64');
@@ -144,7 +145,13 @@ function conectar() {
           
           // 1. Desaparcar el telescopio primero (por si esta aparcado)
           console.log(`-> NINA: Desaparcando telescopio...`);
-          await fetch(`${NINA_API_URL}/equipment/mount/unpark`, { method: 'GET' });
+          const unparkRes = await fetch(`${NINA_API_URL}/equipment/mount/unpark`, { method: 'GET' });
+          if (!unparkRes.ok) {
+            console.log(`-> NINA: Advertencia al desaparcar: ${unparkRes.statusText}`);
+          }
+          
+          // Esperar un momento para que el telescopio procese el desaparcado
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
           // 2. Enviar comando de movimiento (Slew)
           const response = await fetch(`${NINA_API_URL}/equipment/mount/slew?ra=${raDegrees}&dec=${decDegrees}&waitForResult=false&center=true`, {
@@ -169,7 +176,7 @@ function conectar() {
         console.log(`-> NINA: ¡ABORTANDO MOVIMIENTO Y SECUENCIAS!`);
         try {
           await fetch(`${NINA_API_URL}/equipment/mount/slew/stop`, { method: 'GET' });
-          await fetch(`${NINA_API_URL}/application/sequence/stop`, { method: 'GET' });
+          await fetch(`${NINA_API_URL}/sequence/stop`, { method: 'GET' });
           console.log('-> NINA detuvo el telescopio y las secuencias.');
         } catch (err) {
           console.error('-> Error al detener NINA:', err.message);
@@ -177,20 +184,20 @@ function conectar() {
       }
 
       if (comando.accion_requerida === 'tomar_vista_previa') {
-        console.log(`-> NINA: Orden de tomar vista previa (Snapshot)...`);
+        console.log(`-> NINA: Orden de tomar vista previa (Capture)...`);
         try {
           const exposureTime = comando.parametros.exposicion || 5;
-          // El comando correcto en NINA Advanced API v2 para tomar una foto simple suele ser /equipment/camera/snapshot o expose
-          // Intentaremos con snapshot y si no, expose.
-          const response = await fetch(`${NINA_API_URL}/equipment/camera/snapshot?time=${exposureTime}&type=Light`, { method: 'GET' });
+          // El comando correcto en NINA Advanced API v2 para tomar una foto es /equipment/camera/capture
+          const response = await fetch(`${NINA_API_URL}/equipment/camera/capture?duration=${exposureTime}&imageType=SNAPSHOT&waitForResult=false`, { method: 'GET' });
           
-          if (!response.ok) {
-            // Fallback a expose si snapshot no existe
-            await fetch(`${NINA_API_URL}/equipment/camera/expose?time=${exposureTime}&type=Light`, { method: 'GET' });
+          if (response.ok) {
+            console.log(`-> NINA: Exposición de ${exposureTime}s iniciada correctamente.`);
+            ws.send(JSON.stringify({ type: 'telemetry', status: 'Tomando foto...' }));
+          } else {
+            const errorText = await response.text();
+            console.log(`-> NINA rechazo la captura. Error: ${errorText}`);
+            ws.send(JSON.stringify({ type: 'error', message: `Error al tomar foto: ${response.statusText}` }));
           }
-          
-          console.log(`-> NINA: Exposición de ${exposureTime}s iniciada.`);
-          ws.send(JSON.stringify({ type: 'telemetry', status: 'Tomando foto...' }));
         } catch (err) {
           console.error('-> Error al tomar foto:', err.message);
           ws.send(JSON.stringify({ type: 'error', message: `Error al tomar foto: ${err.message}` }));
