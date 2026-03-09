@@ -73,6 +73,15 @@ export function initDb() {
     );
   }
 
+  // Insert default observer user if not exists
+  const observerExists = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('invitado@nina.com');
+  if (!observerExists) {
+    const hash = bcrypt.hashSync('invitado123', 10);
+    db.prepare('INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (?, ?, ?, ?)').run(
+      'Invitado (Observador)', 'invitado@nina.com', hash, 'Observador'
+    );
+  }
+
   // Insert default objects if not exists
   const objectsExist = db.prepare('SELECT COUNT(*) as count FROM catalogo_objetos').get() as { count: number };
   if (objectsExist.count === 0) {
