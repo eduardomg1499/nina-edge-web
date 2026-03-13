@@ -173,7 +173,9 @@ export function initDb() {
 
   const m51Exists = db.prepare('SELECT id FROM catalogo_objetos WHERE designacion = ?').get('M51');
   if (!m51Exists) {
-    insertObj.run('Galaxia del Remolino', 'M51', '13h29m52s', '+47d11m43s', 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Messier51_sRGB.jpg/800px-Messier51_sRGB.jpg', 0);
+    insertObj.run('Galaxia del Remolino', 'M51', '13h29m52s', '+47d11m43s', 'https://www.astroshop.es/CMS/images/text/category/deepsky-land_messier_51_titel_all.jpg', 0);
+  } else {
+    db.exec(`UPDATE catalogo_objetos SET url_imagen_referencia = 'https://www.astroshop.es/CMS/images/text/category/deepsky-land_messier_51_titel_all.jpg' WHERE designacion = 'M51'`);
   }
 
   const m16Exists = db.prepare('SELECT id FROM catalogo_objetos WHERE designacion = ?').get('M16');
@@ -199,5 +201,5 @@ export function initDb() {
   }
 
   // Delete unwanted objects
-  db.exec(`DELETE FROM catalogo_objetos WHERE designacion NOT IN ('Sol', 'M42', 'M81', 'M45', 'M82', 'M31')`);
+  db.exec(`DELETE FROM catalogo_objetos WHERE designacion NOT IN ('Sol', 'M42', 'M81', 'M45', 'M82', 'M31', 'M51')`);
 }
